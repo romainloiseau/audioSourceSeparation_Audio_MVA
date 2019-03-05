@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import tqdm_notebook
 
+
 def compute_Sc(W, H):
     F, K = W.shape
     _, N = H.shape
@@ -9,12 +10,14 @@ def compute_Sc(W, H):
     H = np.array([H for f in range(F)]).transpose(0, 2, 1)
     return W * H
 
+
 def compute_Arond(A, K, Kcal):
     I, _, F = A.shape
     Arond = np.zeros((I, K, F), dtype=complex)
     for j, k in enumerate(Kcal):
         Arond[:, k] = A[:, j]
     return Arond
+
 
 def compute_E_step(x_four, A, W, H, Sb, Kcal):
     Sc = compute_Sc(W, H)
@@ -59,10 +62,11 @@ def compute_E_step(x_four, A, W, H, Sb, Kcal):
             Rss[f] += ss
             Rss[f] -= Gs[f, n].dot(a).dot(ss)
             
-            
-            u[:, f, n] = np.matrix(c[f, n]) * np.matrix(c[f, n]).getH() + np.diagonal(sc + Gc[f, n].dot(arond).dot(sc))
+            u[:, f, n] = np.matrix(c[f, n]) * np.matrix(c[f, n]).getH() + \
+                         np.diagonal(sc + Gc[f, n].dot(arond).dot(sc))
             
     return Rxs, Rss, u
+
     
 def compute_M_step(Rxx, Rxs, Rss, u, H, W):
     F, I, J = Rxs.shape
@@ -78,7 +82,8 @@ def compute_M_step(Rxx, Rxs, Rss, u, H, W):
         af = np.matrix(A[:, :, f])
         rxsf = np.matrix(Rxs[f])
         
-        Sb[f] = - np.array(af.dot(rxsf.getH())) - np.array(rxsf.dot(af.getH())) + np.array(af.dot(Rss[f]).dot(af.getH()))
+        Sb[f] = - np.array(af.dot(rxsf.getH())) - np.array(rxsf.dot(af.getH())) \
+                + np.array(af.dot(Rss[f]).dot(af.getH()))
         Sb[f] += np.diag(Rxx[f, f])
         
         W[f] = np.sum(u[:, f] / H, axis = -1) / N
