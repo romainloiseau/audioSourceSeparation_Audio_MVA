@@ -36,26 +36,26 @@ def compute_Arond(A, K, Kpart):
         prev = cur
     return Arond
 
-
 def compute_sigma_x_fn(a_f, sigma_s_fn, sigma_b_f):
-    return a_f.dot(sigma_s_fn.dot(a_f.getH())) + sigma_b_f
+    return a_f.dot(sigma_s_fn.dot(np.matrix(a_f).getH())) + sigma_b_f
 
 
 def compute_gs_fn(sigma_s_fn, sigma_x_fn, a_f):
     # TODO: computation trick in the overdetermined case
     sig_x_inv = np.linalg.inv(sigma_x_fn)
-    return sigma_s_fn.dot(a_f.getH().dot(sig_x_inv))
+    return sigma_s_fn.dot(np.matrix(a_f).getH().dot(sig_x_inv))
     
     
 def compute_gc_fn(sigma_c_fn, sigma_x_fn, arond_f):
     sig_x_inv = np.linalg.inv(sigma_x_fn)
-    return sigma_c_fn.dot(arond_f.getH().dot(sig_x_inv))
+    return sigma_c_fn.dot(np.matrix(arond_f).getH().dot(sig_x_inv))
 
             
 def r_hat(x1, x2 = None):
-    if x2 == None:
+    if x2 is None:
         x2 = x1
-    return np.sum([x1[i].dot(x2[i].getH()) for i in range(x1.shape[0])]) / x1.shape[1]
+    a = np.sum([np.expand_dims(x1[i], axis = -1).dot(np.matrix(np.expand_dims(x2[i], axis = -1)).getH()) for i in range(x1.shape[0])], axis = 0) / x1.shape[1]
+    return a
 
 
 def squared_module(arr):
@@ -75,12 +75,17 @@ def init_params(X, S, Kpart):
     H = np.concatenate(tuple(H), axis=0)
     A = np.zeros((F, I, J), dtype=np.float)
     sigma_b = np.zeros((F, I, I), dtype=np.float)
+    
+    Rxx = np.zeros((F, I, I), dtype=complex)
+    Rxs = np.zeros((F, I, J), dtype=complex)
+    Rss = np.zeros((F, J, J), dtype=complex)
+    
     for f in range(F):
         Rxx[f] = r_hat(X[f])
         Rxs[f] = r_hat(X[f], S[f])
         Rss[f] = r_hat(S[f])
         A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
-        sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(Rxs[f].getH()) - Rxs[f].dot(A[f].getH()) + A[f].dot(Rss[f].dot(A[f].getH())))
+        sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH())))
     return A, W, H, sigma_b
 
 
@@ -107,7 +112,7 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart):
             
             S[f, n] = gs_fn.dot(X[f, n])
             c_f[n] = gc_fn.dot(X[f, n])
-            U[f, n] = np.diagonal(c_f[n].dot(c_f[n].getH()) + sigma_c[f, n] - gc_fn.dot(Arond[f].dot(sigma_c[f, n])))
+            U[f, n] = np.diagonal(c_f[n].dot(np.matrix(c_f[n]).getH()) + sigma_c[f, n] - gc_fn.dot(Arond[f].dot(sigma_c[f, n])))
             
         Rxx[f] = r_hat(X[f])
         Rxs[f] = r_hat(X[f], S[f])
@@ -127,7 +132,7 @@ def compute_M_step(Rxx, Rxs, Rss, U, W, H):
     
     for f in range(F):
         A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
-        sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(Rxs[f].getH()) - Rxs[f].dot(A[f].getH()) + A[f].dot(Rss[f].dot(A[f].getH())))
+        sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH())))
         for k in range(K):
             W[f, k] = (1/N) * np.sum(np.divide(U[k, f], H[k]))
     for k in range(K):
