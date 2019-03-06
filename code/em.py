@@ -61,7 +61,7 @@ def r_hat(x1, x2 = None):
 def squared_module(arr):
     return np.multiply(arr, arr.conjugate()).real
 
-def init_params(X, S, mix, Kpart):
+def init_params(X, S, Kpart):
     F, N, J = S.shape
     I = X.shape[2]
     W = []
