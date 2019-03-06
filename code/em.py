@@ -1,6 +1,6 @@
 import numpy as np
 from tqdm import tqdm_notebook
-
+import sklearn.decomposition as skd
 
 def W_H_masked(W, H, j, Kpart):
     ind = np.cumsum(Kpart)
@@ -55,9 +55,33 @@ def compute_gc_fn(sigma_c_fn, sigma_x_fn, arond_f):
 def r_hat(x1, x2 = None):
     if x2 == None:
         x2 = x1
-    
-    return np.sum([x1[i].dot(x2[i].getH())
-                                for i in range(x1.shape[0])]) / x1.shape[1]
+    return np.sum([x1[i].dot(x2[i].getH()) for i in range(x1.shape[0])]) / x1.shape[1]
+
+
+def squared_module(arr):
+    return np.multiply(arr, arr.conjugate()).real
+
+def init_params(X, S, mix, Kpart):
+    F, N, J = S.shape
+    I = X.shape[2]
+    W = []
+    H = []
+    for j in range(J):
+        model = skd.NMF(n_components=Kpart[j], init='random', random_state=0)
+        s_2 = squared_module(S[:, :, j])
+        W.append(model.fit_transform(s_2))
+        H.append(model.components_)
+    W = np.concatenate(tuple(W), axis=1)
+    H = np.concatenate(tuple(H), axis=0)
+    A = np.zeros((F, I, J), dtype=np.float)
+    sigma_b = np.zeros((F, I, I), dtype=np.float)
+    for f in range(F):
+        Rxx[f] = r_hat(X[f])
+        Rxs[f] = r_hat(X[f], S[f])
+        Rss[f] = r_hat(S[f])
+        A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
+        sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(Rxs[f].getH()) - Rxs[f].dot(A[f].getH()) + A[f].dot(Rss[f].dot(A[f].getH())))
+    return A, W, H, sigma_b
 
 
 def compute_E_step(X, A, W, H, sigma_b, Kpart):
