@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.signal as sig
 import wave
 
 def plot_stft(freqs, Z):
@@ -13,6 +14,64 @@ def plot_stft(freqs, Z):
         plt.title("STFT Spectrogram for channel {}".format(i))
         plt.ylabel("Frequencies")
         plt.xlabel("Time")
+    plt.show()
+    
+def create_inputs(files = ["data/src1.wav", "data/src2.wav", "data/src3.wav"], maxi = 1.):
+    # load source mono wave files
+    rates, srcs = [], []
+    for file in files:
+        rate, _, src = readwav(file)
+        src = src / maxi
+        rates.append(rate)
+        srcs.append(src)
+    srcs = np.array(srcs)[:, :, 0]
+    
+    coef_mix = .05
+    coef_noise = .01
+    # create noised inputs by modifying source samples
+    matrix = coef_mix * np.ones((srcs.shape[0], srcs.shape[0])) + np.diag((1 - srcs.shape[0] * coef_mix) * np.ones(srcs.shape[0]))
+    srcs_ = matrix.dot(srcs) + np.random.normal(0, coef_noise, srcs.shape)
+    
+    return srcs_, srcs
+    
+def resynthesize_src(S, maxi):
+    times, output = sig.istft(S.transpose((2, 0, 1)))
+    return output * maxi
+
+def W_H_masked(W, H, j, Kpart):
+    ind = np.cumsum(Kpart)
+    prev = 0
+    if j > 0:
+        prev = ind[j-1]
+    return W[:, prev:ind[j]], H[prev:ind[j]]
+    
+def dIS(x, y):
+    return np.sum((x / y) - np.log(x / y) - 1)
+
+def compute_loglike(S, W, H, Kpart, epsilon = 10**(-12)):
+    loglike = 0
+    
+    J = len(Kpart)
+    S2 = np.real(S * np.conj(S))
+    S2_zeros = S2 < epsilon
+    
+    for j in range(J):
+        Wj, Hj = W_H_masked(W, H, j, Kpart)
+        WjHj = np.real(Wj.dot(Hj))
+        
+        WjHj_zeros = WjHj < epsilon
+        zeros = S2_zeros[:, :, j].astype(int) + WjHj_zeros.astype(int) > 0
+        WjHj[zeros] = epsilon
+        S2[:, :, j][zeros]= epsilon
+        
+        loglike += dIS(S2[:, :, j], WjHj)
+        
+    return loglike
+
+def plot_loglike(loglikes):
+    plt.plot(1 + np.arange(len(loglikes)), loglikes)
+    plt.xlabel("iterations")
+    plt.ylabel("log likelihood")
     plt.show()
     
     
