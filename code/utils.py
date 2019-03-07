@@ -16,23 +16,17 @@ def plot_stft(freqs, Z):
         plt.xlabel("Time")
     plt.show()
     
-def create_inputs(files, maxi = 1.):
+def create_inputs(files, maxi = 1., coef_add_noise = 3e-3, coef_mult_noise = 5e-2, coef_mix = .05):
     # load source mono wave files
     rates, srcs = [], []
     for file in files:
         rate, _, src = readwav(file)
-        src = src / maxi
         rates.append(rate)
-        srcs.append(src)
+        srcs.append(src / maxi)
     srcs = np.array(srcs)[:, :, 0]
     
-    coef_mix = .05
-    coef_add_noise = 3e-3
-    coef_mult_noise = 5e-2
     # create noised inputs by modifying source samples
-    print(srcs.shape)
     matrix = coef_mix * np.ones((srcs.shape[0], srcs.shape[0])) + np.diag((1 - srcs.shape[0] * coef_mix) * np.ones(srcs.shape[0]))
-    print(matrix.shape)
     srcs_ = np.multiply(matrix.dot(srcs), np.random.normal(1, coef_mult_noise, srcs.shape)) + np.random.normal(0, coef_add_noise, srcs.shape)
     
     return srcs_, srcs
@@ -43,9 +37,7 @@ def resynthesize_src(S, maxi):
 
 def W_H_masked(W, H, j, Kpart):
     ind = np.cumsum(Kpart)
-    prev = 0
-    if j > 0:
-        prev = ind[j-1]
+    prev = ind[j-1] if j > 0 else 0
     return W[:, prev:ind[j]], H[prev:ind[j]]
     
 def dIS(x, y):
@@ -67,7 +59,8 @@ def compute_loglike(S, W, H, Kpart, epsilon = 10**(-12)):
         WjHj[zeros] = epsilon
         S2[:, :, j][zeros]= epsilon
         
-        loglike += dIS(S2[:, :, j], WjHj)
+        n_ones = 1 - np.mean(zeros)
+        loglike += dIS(S2[:, :, j], WjHj) * n_ones
         
     return loglike
 

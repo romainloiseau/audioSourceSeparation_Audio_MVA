@@ -48,7 +48,7 @@ def r_hat(x1, x2 = None):
 def squared_module(arr):
     return np.multiply(arr, arr.conjugate()).real
 
-def init_params(X, S, Kpart):
+def init_params(X, S, Kpart, nmf_noise = 1e-2):
     F, N, J = S.shape
     I = X.shape[2]
     W = []
@@ -56,8 +56,8 @@ def init_params(X, S, Kpart):
     for j in range(J):
         model = skd.NMF(n_components=Kpart[j], init='random', random_state=0)
         s_2 = squared_module(S[:, :, j])
-        W.append(model.fit_transform(s_2) + np.random.uniform(0, 1e-2, (F, Kpart[j])))
-        H.append(model.components_ + np.random.uniform(0, 1e-2, (Kpart[j], N)))
+        W.append(model.fit_transform(s_2) + np.random.uniform(0, nmf_noise, (F, Kpart[j])))
+        H.append(model.components_ + np.random.uniform(0, nmf_noise, (Kpart[j], N)))
         
     W = np.concatenate(tuple(W), axis=1).astype(complex)
     H = np.concatenate(tuple(H), axis=0).astype(complex)
@@ -120,9 +120,6 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = False):
 def compute_M_step(Rxx, Rxs, Rss, U, W, H, epsilon = 10**(-12)):
     F, I, J = Rxs.shape
     K, N = H.shape
-    
-    W = np.maximum(epsilon, W)
-    H = np.maximum(epsilon, H)
     
     A = np.zeros((F, I, J), dtype=complex)
     sigma_b = np.zeros((F, I, I), dtype=complex)
