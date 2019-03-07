@@ -27,10 +27,13 @@ def create_inputs(files, maxi = 1.):
     srcs = np.array(srcs)[:, :, 0]
     
     coef_mix = .05
-    coef_noise = .01
+    coef_add_noise = 3e-3
+    coef_mult_noise = 5e-2
     # create noised inputs by modifying source samples
+    print(srcs.shape)
     matrix = coef_mix * np.ones((srcs.shape[0], srcs.shape[0])) + np.diag((1 - srcs.shape[0] * coef_mix) * np.ones(srcs.shape[0]))
-    srcs_ = matrix.dot(srcs) + np.random.normal(0, coef_noise, srcs.shape)
+    print(matrix.shape)
+    srcs_ = np.multiply(matrix.dot(srcs), np.random.normal(1, coef_mult_noise, srcs.shape)) + np.random.normal(0, coef_add_noise, srcs.shape)
     
     return srcs_, srcs
     

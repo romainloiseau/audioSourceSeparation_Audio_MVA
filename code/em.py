@@ -56,8 +56,8 @@ def init_params(X, S, Kpart):
     for j in range(J):
         model = skd.NMF(n_components=Kpart[j], init='random', random_state=0)
         s_2 = squared_module(S[:, :, j])
-        W.append(model.fit_transform(s_2))
-        H.append(model.components_)
+        W.append(model.fit_transform(s_2) + np.random.uniform(0, 1e-2, (F, Kpart[j])))
+        H.append(model.components_ + np.random.uniform(0, 1e-2, (Kpart[j], N)))
         
     W = np.concatenate(tuple(W), axis=1).astype(complex)
     H = np.concatenate(tuple(H), axis=0).astype(complex)
@@ -94,6 +94,16 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = False):
         c_f = np.zeros((N, K), dtype=complex)
         for n in range(N):
             sigma_x_fn = compute_sigma_x_fn(A[f], sigma_s[f, n], sigma_b[f])
+            if np.linalg.det(sigma_x_fn) == 0:
+                print('\Sigma_s(f, n) = ')
+                print(sigma_s[f, n])
+                w = np.zeros((J, J), dtype=complex)
+                for j in range(J):
+                    W_masked, H_masked = utils.W_H_masked(W, H, j, Kpart)
+                    print('j = {}'.format(j))
+                    print('W: {}'.format(W_masked[f]))
+                    print('H: {}'.format(H_masked[:, n]))
+
             gs_fn = compute_gs_fn(sigma_s[f, n], sigma_x_fn, A[f])
             gc_fn = compute_gc_fn(sigma_c[f, n], sigma_x_fn, Arond[f])
             
