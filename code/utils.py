@@ -23,13 +23,14 @@ def create_inputs(files, maxi = 1., coef_add_noise = 3e-3, coef_mult_noise = 5e-
         rate, _, src = readwav(file)
         rates.append(rate)
         srcs.append(src / maxi)
+    for rate in rates[1:]:assert rate == rates[0]
     srcs = np.array(srcs)[:, :, 0]
     
     # create noised inputs by modifying source samples
     matrix = coef_mix * np.ones((srcs.shape[0], srcs.shape[0])) + np.diag((1 - srcs.shape[0] * coef_mix) * np.ones(srcs.shape[0]))
-    srcs_ = np.multiply(matrix.dot(srcs), np.random.normal(1, coef_mult_noise, srcs.shape)) + np.random.normal(0, coef_add_noise, srcs.shape)
+    perturbated_srcs = np.multiply(matrix.dot(srcs), np.random.normal(1, coef_mult_noise, srcs.shape)) + np.random.normal(0, coef_add_noise, srcs.shape)
     
-    return srcs_, srcs
+    return perturbated_srcs, srcs
     
 def resynthesize_src(S, maxi):
     times, output = sig.istft(S.transpose((2, 0, 1)))
@@ -37,7 +38,7 @@ def resynthesize_src(S, maxi):
 
 def W_H_masked(W, H, j, Kpart):
     ind = np.cumsum(Kpart)
-    prev = ind[j-1] if j > 0 else 0
+    prev = ind[j - 1] if j > 0 else 0
     return W[:, prev:ind[j]], H[prev:ind[j]]
     
 def dIS(x, y):
