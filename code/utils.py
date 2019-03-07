@@ -16,7 +16,7 @@ def plot_stft(freqs, Z):
         plt.xlabel("Time")
     plt.show()
     
-def create_inputs(files = ["data/src1.wav", "data/src2.wav", "data/src3.wav"], maxi = 1.):
+def create_inputs(files, maxi = 1.):
     # load source mono wave files
     rates, srcs = [], []
     for file in files:
