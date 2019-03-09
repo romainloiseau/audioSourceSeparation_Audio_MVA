@@ -10,13 +10,13 @@ def plot_stft(freqs, Z):
     for i in range(Z.shape[0]):
         plt.subplot(101 + Z.shape[0] * 10 + i)
         logmag = np.flipud(np.log(eps + np.real(Z[i])**2))
-        plt.imshow(logmag, extent=[0, logmag.shape[-1], 0, 512], aspect = 'auto', cmap = plt.cm.gist_heat)
+        plt.imshow(logmag, extent=[0, logmag.shape[-1], 0, len(freqs)], aspect = 'auto', cmap = plt.cm.gist_heat)
         plt.title("STFT Spectrogram for channel {}".format(i))
         plt.ylabel("Frequencies")
         plt.xlabel("Time")
     plt.show()
     
-def create_inputs(files, maxi = 1., coef_add_noise = 1e-2, coef_mult_noise = 1e-2, coef_mix = .1):
+def create_inputs(files, maxi = 1., coef_add_noise = 1e-3, coef_mult_noise = 1e-3, coef_mix = .1):
     # load source mono wave files
     rates, srcs = [], []
     for file in files:
