@@ -16,6 +16,41 @@ def plot_stft(freqs, Z):
         plt.xlabel("Time")
     plt.show()
     
+def plot_W_H(W, H, freqs, Kpart):
+    ind = np.cumsum(Kpart)
+    
+    n_cols = len(Kpart)
+    n_rows = np.max(Kpart)
+    
+    n_ticks = 5
+    x_freqs = np.arange(n_ticks + 1) * len(freqs) / n_ticks
+    true_x_freqs = freqs[np.minimum(x_freqs.astype(int), len(freqs) - 1)].astype(int)
+    
+    plt.figure(figsize = (4 * n_cols, 2 * n_rows))
+    for i in range(len(Kpart)):
+        cur = ind[i]
+        prev = ind[i - 1] if i > 0 else 0
+        for j in range(prev, cur):
+            plt.subplot(n_rows, n_cols, 1 + i + len(Kpart) *(j - prev))
+            plt.plot(np.log10(np.real(W[:, j])))
+            plt.title("Source_{}, W_{}".format(i + 1, j - prev + 1))
+            plt.ylim([np.min(np.log10(np.real(W))), 0])
+            plt.xticks(x_freqs, true_x_freqs)
+    plt.tight_layout()
+    plt.show()
+    
+    plt.figure(figsize = (4 * n_cols, 2 * n_rows))
+    for i in range(len(Kpart)):
+        cur = ind[i]
+        prev = ind[i - 1] if i > 0 else 0
+        for j in range(prev, cur):
+            plt.subplot(n_rows, n_cols, 1 + i + len(Kpart) *(j - prev))
+            plt.plot(np.real(H[j, :]))
+            plt.title("Source_{}, H_{}".format(i + 1, j - prev + 1))
+            plt.ylim([0, np.max(np.real(H))])
+    plt.tight_layout()
+    plt.show()
+    
 def create_inputs(files, maxi = 1., coef_add_noise = 1e-3, coef_mult_noise = 1e-3, coef_mix = .1):
     # load source mono wave files
     rates, srcs = [], []
