@@ -65,8 +65,10 @@ def compute_loglike(S, W, H, Kpart, epsilon = 10**(-12)):
         
     return loglike
 
-def plot_loglike(loglikes):
-    plt.plot(1 + np.arange(len(loglikes)), loglikes)
+def plot_loglike(loglikess):
+    labels = ["true", "rec"]
+    for loglikes, label in zip(loglikess, labels):
+        plt.plot(np.arange(len(loglikes)), loglikes, label = label)
     plt.xlabel("iterations")
     plt.ylabel("log likelihood")
     plt.show()

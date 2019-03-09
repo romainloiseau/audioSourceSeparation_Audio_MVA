@@ -29,14 +29,14 @@ def compute_Arond(A, K, Kpart):
 def compute_sigma_x_fn(a_f, sigma_s_fn, sigma_b_f):
     return a_f.dot(sigma_s_fn.dot(np.matrix(a_f).getH())) + sigma_b_f
 
-def compute_gs_fn(sigma_s_fn, sigma_x_fn, a_f):
+def compute_gs_fn(sigma_s_fn, sigma_x_fn_inv, a_f):
     # TODO: computation trick in the overdetermined case
-    sig_x_inv = np.linalg.inv(sigma_x_fn)
-    return sigma_s_fn.dot(np.matrix(a_f).getH().dot(sig_x_inv))
+    #sig_x_inv = np.linalg.inv(sigma_x_fn)
+    return sigma_s_fn.dot(np.matrix(a_f).getH().dot(sigma_x_fn_inv))
     
-def compute_gc_fn(sigma_c_fn, sigma_x_fn, arond_f):
-    sig_x_inv = np.linalg.inv(sigma_x_fn)
-    return sigma_c_fn.dot(np.matrix(arond_f).getH().dot(sig_x_inv))
+def compute_gc_fn(sigma_c_fn, sigma_x_fn_inv, arond_f):
+    #sig_x_inv = np.linalg.inv(sigma_x_fn)
+    return sigma_c_fn.dot(np.matrix(arond_f).getH().dot(sigma_x_fn_inv))
     
 def r_hat(x1, x2 = None):
     if x2 is None:x2 = x1
@@ -103,9 +103,10 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = 1):
                         print('j = {}'.format(j))
                         print('W: {}'.format(W_masked[f]))
                         print('H: {}'.format(H_masked[:, n]))
-
-            gs_fn = compute_gs_fn(sigma_s[f, n], sigma_x_fn, A[f])
-            gc_fn = compute_gc_fn(sigma_c[f, n], sigma_x_fn, Arond[f])
+                        
+            sigma_x_fn_inv = np.linalg.inv(sigma_x_fn)
+            gs_fn = compute_gs_fn(sigma_s[f, n], sigma_x_fn_inv, A[f])
+            gc_fn = compute_gc_fn(sigma_c[f, n], sigma_x_fn_inv, Arond[f])
             
             S[f, n] = gs_fn.dot(X[f, n])
             c_f[n] = gc_fn.dot(X[f, n])
