@@ -7,6 +7,11 @@ def plot_stft(freqs, Z):
     # TODO: change y axis in the plot in order to display the true frequencies (they are in the list freqs returned by the STFT)
     plt.figure(figsize = (15, 5))
     eps = 1e-10
+    
+    n_ticks = 5
+    x_freqs = np.arange(n_ticks + 1) * len(freqs) / n_ticks
+    true_x_freqs = freqs[np.minimum(x_freqs.astype(int), len(freqs) - 1)].astype(int)
+    
     for i in range(Z.shape[0]):
         plt.subplot(101 + Z.shape[0] * 10 + i)
         logmag = np.flipud(np.log(eps + np.real(Z[i])**2))
@@ -14,6 +19,7 @@ def plot_stft(freqs, Z):
         plt.title("STFT Spectrogram for channel {}".format(i))
         plt.ylabel("Frequencies")
         plt.xlabel("Time")
+        plt.yticks(x_freqs, true_x_freqs)
     plt.show()
     
 def plot_W_H(W, H, freqs, Kpart):
@@ -32,9 +38,9 @@ def plot_W_H(W, H, freqs, Kpart):
         prev = ind[i - 1] if i > 0 else 0
         for j in range(prev, cur):
             plt.subplot(n_rows, n_cols, 1 + i + len(Kpart) *(j - prev))
-            plt.plot(np.log10(np.real(W[:, j])))
+            plt.plot(np.log10(np.sqrt(np.real(W[:, j] * np.conj(W[:, j])))))
             plt.title("Source_{}, W_{}".format(i + 1, j - prev + 1))
-            plt.ylim([np.min(np.log10(np.real(W))), 0])
+            plt.ylim([np.min(np.log10(np.sqrt(np.real(W * np.conj(W))))), 0])
             plt.xticks(x_freqs, true_x_freqs)
     plt.tight_layout()
     plt.show()
@@ -45,13 +51,13 @@ def plot_W_H(W, H, freqs, Kpart):
         prev = ind[i - 1] if i > 0 else 0
         for j in range(prev, cur):
             plt.subplot(n_rows, n_cols, 1 + i + len(Kpart) *(j - prev))
-            plt.plot(np.real(H[j, :]))
+            plt.plot(np.sqrt(np.real(H[j, :] * np.conj(H[j, :]))))
             plt.title("Source_{}, H_{}".format(i + 1, j - prev + 1))
-            plt.ylim([0, np.max(np.real(H))])
+            plt.ylim([0, np.max(np.sqrt(np.real(H * np.conj(H))))])
     plt.tight_layout()
     plt.show()
     
-def create_inputs(files, maxi = 1., coef_add_noise = 1e-3, coef_mult_noise = 1e-3, coef_mix = .1):
+def create_inputs(files, maxi = 1., coef_add_noise = 1e-3, coef_mult_noise = 1e-3, coef_mix = .05):
     # load source mono wave files
     rates, srcs = [], []
     for file in files:
@@ -67,8 +73,9 @@ def create_inputs(files, maxi = 1., coef_add_noise = 1e-3, coef_mult_noise = 1e-
     
     return perturbated_srcs, srcs
     
-def resynthesize_src(S, maxi):
-    times, output = sig.istft(S.transpose((2, 0, 1)))
+def resynthesize_src(S, maxi, final_freqs, freqs, noverlap):
+    S = np.concatenate([S, np.zeros((len(freqs) - len(final_freqs), S.shape[1], S.shape[2]))], axis = 0)
+    times, output = sig.istft(S.transpose((2, 0, 1)), noverlap = noverlap)
     return output * maxi
 
 def W_H_masked(W, H, j, Kpart):
@@ -104,6 +111,7 @@ def plot_loglike(loglikess):
     labels = ["true", "rec"]
     for loglikes, label in zip(loglikess, labels):
         plt.plot(np.arange(len(loglikes)), loglikes, label = label)
+    plt.legend(loc="best")
     plt.xlabel("iterations")
     plt.ylabel("log likelihood")
     plt.show()

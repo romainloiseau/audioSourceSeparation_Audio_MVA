@@ -3,6 +3,24 @@ from tqdm import tqdm_notebook
 import sklearn.decomposition as skd
 import utils
 
+def normalize(A, W, H, Kpart, debug = False):
+    if debug:print(A.shape, W.shape, H.shape)
+    A = A.transpose(1, 0, 2)
+    sumA = np.sqrt(np.sum(np.real(A * np.conj(A)), axis = 0))
+    A = (A / sumA).transpose(1, 0, 2)
+    if debug:print("sumA.shape", sumA.shape, A.shape)
+    
+    sumA_W = np.array([[sumA[:, i] for _ in range(k)] for i, k in enumerate(Kpart)]).reshape((np.sum(Kpart), -1)).transpose()
+    W *= sumA_W
+    if debug:print("sumA_W.shape", sumA_W.shape, W.shape)
+    
+    sumW = np.sum(np.real(W), axis = 0)
+    W /= sumW
+    H = (H.transpose() * sumW).transpose()
+    if debug:print("sumW.shape", sumW.shape, W.shape)
+    if debug:print(A.shape, W.shape, H.shape)
+    return A, W, H
+
 def compute_sigma_s(W, H, F, N, J, Kpart):
     sigma_s = np.zeros((F, N, J, J), dtype = complex)
     for j in range(J):
@@ -27,16 +45,16 @@ def compute_Arond(A, K, Kpart):
     return Arond
 
 def compute_sigma_x_fn(a_f, sigma_s_fn, sigma_b_f):
-    return a_f.dot(sigma_s_fn.dot(np.matrix(a_f).getH())) + sigma_b_f
+    return a_f.dot(sigma_s_fn).dot(np.matrix(a_f).getH()) + sigma_b_f
 
 def compute_gs_fn(sigma_s_fn, sigma_x_fn_inv, a_f):
     # TODO: computation trick in the overdetermined case
     #sig_x_inv = np.linalg.inv(sigma_x_fn)
-    return sigma_s_fn.dot(np.matrix(a_f).getH().dot(sigma_x_fn_inv))
+    return sigma_s_fn.dot(np.matrix(a_f).getH()).dot(sigma_x_fn_inv)
     
 def compute_gc_fn(sigma_c_fn, sigma_x_fn_inv, arond_f):
     #sig_x_inv = np.linalg.inv(sigma_x_fn)
-    return sigma_c_fn.dot(np.matrix(arond_f).getH().dot(sigma_x_fn_inv))
+    return sigma_c_fn.dot(np.matrix(arond_f).getH()).dot(sigma_x_fn_inv)
     
 def r_hat(x1, x2 = None):
     if x2 is None:x2 = x1
@@ -71,7 +89,7 @@ def init_params(X, S, Kpart, nmf_noise = 1e-2):
         Rss[f] = r_hat(S[f])
         A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
         sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH())))
-    return A, W, H, sigma_b
+    return A, W, H, sigma_b, Rxx, Rxs, Rss
 
 def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = 1):
     F, I, J = A.shape
@@ -110,11 +128,13 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = 1):
             
             S[f, n] = gs_fn.dot(X[f, n])
             c_f[n] = gc_fn.dot(X[f, n])
-            U[f, n] = np.diagonal(c_f[n].dot(np.matrix(c_f[n]).getH()) + sigma_c[f, n] - gc_fn.dot(Arond[f].dot(sigma_c[f, n])))
+            #Take the real part is important
+            U[f, n] = np.diagonal(np.expand_dims(c_f[n], axis = -1).dot(np.matrix(np.expand_dims(c_f[n], axis = -1)).getH()) +
+                                  sigma_c[f, n] - gc_fn.dot(Arond[f].dot(sigma_c[f, n])))
             
         Rxx[f] = r_hat(X[f])
         Rxs[f] = r_hat(X[f], S[f])
-        Rss[f] = r_hat(S[f]) + sigma_s[f, n] - gs_fn.dot(A[f].dot(sigma_s[f, n]))
+        Rss[f] = r_hat(S[f]) + np.mean([sigma_s[f, n] - gs_fn.dot(A[f]).dot(sigma_s[f, n]) for n in range(N)], axis = 0)
         
     return Rxx, Rxs, Rss, U, S
 
@@ -122,17 +142,21 @@ def compute_M_step(Rxx, Rxs, Rss, U, W, H):
     F, I, J = Rxs.shape
     K, N = H.shape
     
+    newW = np.zeros(W.shape, dtype = complex)
+    newH = np.zeros(H.shape, dtype = complex)
+    
     A = np.zeros((F, I, J), dtype = complex)
     sigma_b = np.zeros((F, I, I), dtype = complex)
     
     for f in range(F):
         A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
         sigma_b[f] = np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH())))
+        
         for k in range(K):
-            W[f, k] = np.mean(np.divide(U[f, :, k], H[k])) #/ N
+            newW[f, k] = np.mean(np.divide(U[f, :, k], H[k])) #/ N
     
     for k in range(K):
         for n in range(N):
-            H[k, n] = np.mean(np.divide(U[:, n, k], W[:, k])) #/F
+            newH[k, n] = np.mean(np.divide(U[:, n, k], W[:, k])) #/F
 
-    return A, sigma_b, W, H
+    return A, sigma_b, newW, newH
