@@ -77,7 +77,7 @@ def init_params(X, S, Kpart, nmf_noise = 1e-2):
     W = np.concatenate(tuple(W), axis = 1).astype(complex)
     H = np.concatenate(tuple(H), axis = 0).astype(complex)
     A = np.zeros((F, I, J), dtype = complex)
-    sigma_b = np.zeros((F, I), dtype = complex)
+    sigma_b = np.zeros(F, dtype = complex)
     
     Rxx = np.zeros((F, I, I), dtype = complex)
     Rxs = np.zeros((F, I, J), dtype = complex)
@@ -88,7 +88,7 @@ def init_params(X, S, Kpart, nmf_noise = 1e-2):
         Rxs[f] = r_hat(X[f], S[f])
         Rss[f] = r_hat(S[f])
         A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
-        sigma_b[f] = .5 * np.real(np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH()))))
+        sigma_b[f] = np.mean(np.real(np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH())))))
     return A, W, H, sigma_b, Rxx, Rxs, Rss
 
 def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = 1):
@@ -108,7 +108,7 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = 1):
     for f in tqdm_notebook(range(F), leave = verbose > 1):
         c_f = np.zeros((N, K), dtype = complex)
         for n in range(N):
-            sigma_x_fn = compute_sigma_x_fn(A[f], sigma_s[f, n], np.diag(sigma_b[f]))
+            sigma_x_fn = compute_sigma_x_fn(A[f], sigma_s[f, n], sigma_b[f] * np.diag(np.ones(I)))
             
             #Checking invertibility
             if verbose > 0:
@@ -128,9 +128,9 @@ def compute_E_step(X, A, W, H, sigma_b, Kpart, verbose = 1):
             
             S[f, n] = gs_fn.dot(X[f, n])
             c_f[n] = gc_fn.dot(X[f, n])
-            #Take the real part is important
+            #Taking the real part is important
             U[f, n] = np.diagonal(np.expand_dims(c_f[n], axis = -1).dot(np.matrix(np.expand_dims(c_f[n], axis = -1)).getH()) +
-                                  sigma_c[f, n] - gc_fn.dot(Arond[f].dot(sigma_c[f, n])))
+                                  sigma_c[f, n] - np.real(gc_fn.dot(Arond[f].dot(sigma_c[f, n]))))
             
         Rxx[f] = r_hat(X[f])
         Rxs[f] = r_hat(X[f], S[f])
@@ -146,11 +146,11 @@ def compute_M_step(Rxx, Rxs, Rss, U, W, H):
     newH = np.zeros(H.shape, dtype = complex)
     
     A = np.zeros((F, I, J), dtype = complex)
-    sigma_b = np.zeros((F, I), dtype = complex)
+    sigma_b = np.zeros(F, dtype = complex)
     
     for f in range(F):
         A[f] = Rxs[f].dot(np.linalg.inv(Rss[f]))
-        sigma_b[f] = .5 * np.real(np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH()))))
+        sigma_b[f] = np.mean(np.real(np.diagonal(Rxx[f] - A[f].dot(np.matrix(Rxs[f]).getH()) - Rxs[f].dot(np.matrix(A[f]).getH()) + A[f].dot(Rss[f].dot(np.matrix(A[f]).getH())))))
         
         for k in range(K):
             newW[f, k] = np.mean(np.divide(U[f, :, k], H[k])) #/ N
