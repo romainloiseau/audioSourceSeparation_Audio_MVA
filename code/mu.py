@@ -2,49 +2,55 @@ import numpy as np
 from tqdm import tqdm_notebook
 import utils
 
-def update_Q(Q, W, H, V, V_hat_inv):
+def update_Q(Q, W, H, V, V_hat, Kpart):
     I, F, N = V.shape
     J = W.shape[0]
     WH = np.zeros((J, F, N), dtype=complex)
     for j in range(J):
-        WH = W[j].dot(H[j])
+        W_masked, H_masked = utils.W_H_masked(W, H, j, Kpart)
+        WH = W_masked.dot(H_masked)
         for i in range(I):
             Q[i, j] = np.multiply(Q[i, j], 
-                                  np.divide(V_hat_inv[i].dot(V_hat_inv[i]).dot(V[i]).dot(WH).dot(np.ones(N, dtype=complex)),
-                                            V_hat_inv[i].dot(WH).dot(np.ones(N, dtype=complex))
+                                  np.divide(((1/(V_hat[i] * V_hat[i])) * V[i] * WH).dot(np.ones(N, dtype=complex)),
+                                            ((1/V_hat[i]) * WH).dot(np.ones(N, dtype=complex))
                                            )
                                  )
     return Q
 
-def update_W(Q, W, H, V, V_hat_inv):
+def update_W(Q, W, H, V, V_hat, Kpart):
     I, F, N = V.shape
     J, _, K = W.shape
+    ind = np.cumsum(Kpart)
+
     for j in range(J):
+        prev = ind[j - 1] if j > 0 else 0
         s1 = np.zeros((F, F), dtype=complex)
         s2 = np.zeros((F, F), dtype=complex)
         for i in range(I):
-            s1 += np.diag(Q[i, j]).dot(V_hat_inv[i].dot(V_hat_inv[i]).dot(V[i]))
-            s2 += np.diag(Q[i, j]).dot(V_hat_inv[i])
-        W[j] = np.multiply(W[j],
-                           np.divide(s1.dot(H[j].transpose()),
-                                     s2.dot(H[j].transpose())
+            s1 += np.diag(Q[i, j]).dot((1/(V_hat[i]*V_hat[i])) * V[i])
+            s2 += np.diag(Q[i, j]).dot(1/V_hat[i])
+        W[:, prev:ind[j]] = np.multiply(W[:, prev:ind[j]],
+                           np.divide(s1.dot(H[prev:ind[j]].transpose()),
+                                     s2.dot(H[prev:ind[j]].transpose())
                                     )
                           )
     return W
 
-def update_H(Q, W, H, V, V_hat_inv):
+def update_H(Q, W, H, V, V_hat, Kpart):
     I, F, N = V.shape
     J, _, K = W.shape
-    
+    ind = np.cumsum(Kpart)
+
     for j in range(J):
+        prev = ind[j - 1] if j > 0 else 0
         s1 = np.zeros((F, F), dtype=complex)
         s2 = np.zeros((F, F), dtype=complex)
         for i in range(I):
             s1 += np.diag(Q[i, j]).dot(V_hat_inv[i].dot(V_hat_inv[i]).dot(V[i]))
             s2 += np.diag(Q[i, j]).dot(V_hat_inv[i])
-        H[j] = np.multiply(H[j],
-                           np.divide(W[j].transpose().dot(s1),
-                                     W[j].transpose().dot(s2)
+        H[prev:ind[j]] = np.multiply(H[prev:ind[j]],
+                           np.divide(W[:, prev:ind[j]].transpose().dot(s1),
+                                     W[:, prev:ind[j]].transpose().dot(s2)
                                     )
                           )
     return H
@@ -86,10 +92,10 @@ def mu_iteration(Q, W, H, V, Kpart):
     F, I, J = Q.shape
     K, N = H.shape
     Qrond = compute_Qrond(Q, K, Kpart)
-    V_hat = compute_Vhat(Qrond, K, Kpart)
-    Q = update_Q(Q, W, H, V, V_hat_inv)
-    W = update_W(Q, W, H, V, V_hat_inv)
-    H = update_H(Q, W, H, V, V_hat_inv)
+    V_hat = compute_Vhat(Qrond, W, H)
+    Q = update_Q(Q, W, H, V, V_hat, Kpart)
+    W = update_W(Q, W, H, V, V_hat, Kpart)
+    H = update_H(Q, W, H, V, V_hat, Kpart)
     Q, W, H = normalize(Q, W, H, Kpart)
     return Q, W, H
-    
+
